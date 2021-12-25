@@ -176,7 +176,7 @@ func PrintTetramino(squ [][]string) {
 
 func splitTetramino(fileStr string) []tetraminoStr {
 	var alltetramino [][]string
-	lineList := strings.Split(fileStr, "\r\n")
+	lineList := strings.Split(fileStr, "\n")
 
 	var tetramino []string
 
