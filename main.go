@@ -7,85 +7,143 @@ import (
 	"strings"
 )
 
-var allSQ = 7
+var allSQ = 2
+var tetraminoBase []tetraminoStr
 
 func main() {
+	initBase()
 	Tetris()
 }
 
+func initBase() {
+	file, err := os.ReadFile("base.txt")
+	if err != nil {
+		tetrisERROR(errors.New("500?"))
+	}
+	fileStr := string(file)
+	tetraminoBase = splitTetramino(fileStr)
+}
+
 type tetraminoStr struct {
-	b         bool
 	symbol    string
 	tetramino [][2]int
 }
 
 func Tetris() {
-	file, err := os.ReadFile("test.txt")
+	args := os.Args[1:]
+	if len(args) != 1 {
+		tetrisERROR(errors.New("invalid form."))
+	}
+	file, err := os.ReadFile(args[0])
 	if err != nil {
 		tetrisERROR(err)
 	}
 	fileStr := string(file)
-	alltetramino := splitTetramino(fileStr)
-	finishTetris(alltetramino)
 
+	alltetramino := splitTetramino(fileStr)
+	if checkupTetramino(alltetramino) {
+		finishTetris(alltetramino)
+		return
+	}
+	tetrisERROR(errors.New("bad example"))
+}
+
+func checkupTetramino(alltetramino []tetraminoStr) bool {
+	n := 0
+	m := 0
+	// fmt.Println(alltetramino)
+	// fmt.Println(tetraminoBase)
+	for _, i := range alltetramino {
+		for _, j := range tetraminoBase {
+			// fmt.Println(i.tetramino, j.)
+
+			for k := range j.tetramino {
+				// m := 0
+				if i.tetramino[k] == j.tetramino[k] {
+					m++
+				}
+				// fmt.Print(m, " ")
+			}
+			if m == 4 {
+				n++
+			}
+			m = 0
+		}
+	}
+	// fmt.Println(n, len(alltetramino))
+	if n == len(alltetramino) {
+		return true
+	}
+
+	return false
 }
 
 func finishTetris(alltetramino []tetraminoStr) {
+
 	b := false
 	a := [][]string{}
 	for !b {
-		fmt.Println("Hello")
+		if allSQ*allSQ < len(alltetramino)*4 {
+			allSQ++
+			continue
+		}
 		a = genaretSQ(allSQ)
-		a, b = decidedTetris(alltetramino, a, 0, 0)
+		a, b = decidedTetris(alltetramino, a, 0, 0, allSQ*allSQ)
 		allSQ++
 	}
 	PrintTetramino(a)
 }
 
-//TODO Write this shit
-func decidedTetris(alltetramino []tetraminoStr, squ [][]string, x, y int) ([][]string, bool) {
-	// fmt.Println(x, y)
+func decidedTetris(alltetramino []tetraminoStr, squ [][]string, x, y int, dot int) ([][]string, bool) {
+	// fmt.Println(path)
 	n := len(squ)
 
-	if checkerListTetramino(alltetramino) {
+	if len(alltetramino) == 0 {
 		return squ, true
 	}
-
+	if dot < len(alltetramino)*4 {
+		return squ, false
+	}
 	if x >= n {
 		return squ, false
 	}
 
 	if squ[x][y] != "." {
-		return decidedTetris(alltetramino, squ, x+((y+1)/n), (y+1)%n)
+		return decidedTetris(alltetramino, squ, x+((y+1)/n), (y+1)%n, dot)
 	}
 
 	for j, v := range alltetramino {
-		if v.b {
-			continue
-		}
+
 		b, sq := checkerTetramino(v, squ, x, y)
 		if b {
-			a := []tetraminoStr{}
-			for _, o := range alltetramino {
-				a = append(a, o)
-			}
-			a[j].b = true
-			sq, b = decidedTetris(a, sq, x+((y+1)/n), (y+1)%n)
+			a := PopTetr(alltetramino, j)
+			sq, b = decidedTetris(a, sq, x+((y+1)/n), (y+1)%n, dot-4)
 			if b {
 				return sq, true
 			}
 		}
 	}
-	return decidedTetris(alltetramino, squ, x+((y+1)/n), (y+1)%n)
+
+	return decidedTetris(alltetramino, squ, x+((y+1)/n), (y+1)%n, dot-1)
+}
+
+func PopTetr(alltetramino []tetraminoStr, i int) []tetraminoStr {
+	a := []tetraminoStr{}
+	for j, v := range alltetramino {
+		if j == i {
+			continue
+		}
+		a = append(a, v)
+	}
+	return a
 }
 
 func checkerTetramino(tetramino tetraminoStr, squ [][]string, x, y int) (bool, [][]string) {
 	sq := [][]string{}
 	for i, j := range squ {
 		sq = append(sq, []string{})
-		for _, f := range j {
-			sq[i] = append(sq[i], f)
-		}
+		sq[i] = append(sq[i], j...)
+
 	}
 
 	for _, v := range tetramino.tetramino {
@@ -100,22 +158,11 @@ func checkerTetramino(tetramino tetraminoStr, squ [][]string, x, y int) (bool, [
 		if squ[x1][y1] != "." {
 			return false, squ
 		}
-	}
-	for _, v := range tetramino.tetramino {
-		x1 := v[0] + x
-		y1 := v[1] + y
 		sq[x1][y1] = tetramino.symbol
-	}
-	return true, sq
-}
 
-func checkerListTetramino(alltetramino []tetraminoStr) bool {
-	for _, v := range alltetramino {
-		if !v.b {
-			return false
-		}
 	}
-	return true
+
+	return true, sq
 }
 
 func PrintTetramino(squ [][]string) {
@@ -172,12 +219,12 @@ func validateTetramino(alltetramino [][]string) []tetraminoStr {
 		defy := 100
 
 		if len(i) != 4 {
-			tetrisERROR(errors.New("invalid value x != 4"))
+			tetrisERROR(errors.New("invalid value, bad format file"))
 		}
 		for x, j := range i {
 
 			if len(j) != 4 {
-				tetrisERROR(errors.New("invalid value y != 4"))
+				tetrisERROR(errors.New("invalid value, bad format file"))
 			}
 			for y, n := range j {
 				if n == '#' {
@@ -207,6 +254,6 @@ func validateTetramino(alltetramino [][]string) []tetraminoStr {
 }
 
 func tetrisERROR(err error) {
-	fmt.Println("ERROR: ", err)
-	panic(1)
+	fmt.Println("ERROR:", err)
+	os.Exit(1)
 }
